@@ -1,19 +1,17 @@
-= Sample Spring Boot Application
+= Sample Spring Boot Application & Blue Green Pipeline
 
 IMPORTANT: This example application requires Java 8 JDK or greater and Maven 3.3.x or greater.
 
 
-== Running the Example Application on a Single-node OpenShift Cluster
-If you have a single-node OpenShift cluster, such as Minishift or Red Hat Container Development Kit, installed and running, you can also deploy your example application there. A single-node OpenShift cluster provides you with access to a cloud environment that is similar to a production environment.
+== Build and Run application on OpenShift
 
-To deploy your example application to a running single-node OpenShift cluster:
+To build & deploy  example application to a  OpenShift cluster:
 [source,bash,options="nowrap",subs="attributes+"]
 ----
-$ oc login -u developer -p developer
+$ oc new-app java~https://github.com/serhat-dirik/sample-spring-crud --name sample-spring-crud
 
-$ oc new-project MY_PROJECT_NAME
+$ oc expose svc/sample-spring-crud
 
-$ mvn clean fabric8:deploy -Popenshift
 ----
 
 
@@ -23,9 +21,8 @@ To interact with your example application while it is running on a Single-node O
 
 [source,bash,options="nowrap",subs="attributes+"]
 ----
-$ oc get route MY_APP_NAME -o jsonpath={$.spec.host}
+$ oc get route sample-spring-crud -o jsonpath='{.spec.host}'
 
-MY_APP_NAME-MY_PROJECT_NAME.LOCAL_OPENSHIFT_HOSTNAME
 ----
 
 
@@ -91,6 +88,17 @@ curl -X DELETE http://MY_APP_NAME-MY_PROJECT_NAME.LOCAL_OPENSHIFT_HOSTNAME/api/f
 ----
 
 NOTE: If you receive an HTTP Error code `503` as a response after executing these commands, it means that the application is not ready yet.
+
+== Blue Green Pipeline
+Clone the source repo and execute the below script:
+[source,bash,options="nowrap",subs="attributes+"]
+----
+$ ./cd-provision.sh -d dev-prj -s stage-prj
+
+----
+
+The script will create two projects as development and stage. A Jenkins pipeline
+name "bluegreen-pipeline" will be created in the development project
 
 == More Information
 You can learn more about this example application and rest of the Spring Boot runtime in the link:https://access.redhat.com/documentation/en-us/red_hat_support_for_spring_boot/[Spring Boot Runtime Guide].

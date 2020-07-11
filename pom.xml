@@ -198,10 +198,12 @@
     <profile>
       <id>openshift</id>
       <activation />
+
       <properties>
         <db.name>H2</db.name>
       </properties>
       <build>
+        <finalName> sample-spring-crud </finalName>
         <plugins>
           <plugin>
             <groupId>io.fabric8</groupId>

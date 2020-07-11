@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: cicd
+  group: cicd
+metadata:
+  annotations:
+    iconClass: icon-jenkins
+    tags: instant-app,jenkins,cicd
+  name: cicd
+message: "Simple blue green pipeline for sample spring boot project"
+parameters:
+- displayName: DEV project name
+  value: dev
+  name: DEV_PROJECT
+  required: true
+- displayName: STAGE project name
+  value: stage
+  name: STAGE_PROJECT
+  required: true
+objects:
+- apiVersion: build.openshift.io/v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      name: bluegreen-pipeline
+    name: bluegreen-pipeline
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: {}
+    output: {}
+    postCommit: {}
+    resources: {}
+    runPolicy: SerialLatestOnly
+    source:
+      type: None
+    strategy:
+      jenkinsPipelineStrategy:
+        env:
+        - name: DEV_PROJECT
+          value: ${DEV_PROJECT}
+        - name: STAGE_PROJECT
+          value: ${STAGE_PROJECT}
+        jenkinsfile: |-
+           #!groovy
+           node('maven') {
+
+              stage ('Build in DEV project') {
+               echo "Building image with the latest jar"
+               sh "oc start-build sample-spring-crud   --wait=true --follow -n ${DEV_PROJECT}"
+              }
+
+
+              def tag="blue"
+              def altTag="green"
+
+              stage ('Deploy Stage') {
+                echo 'Promoting to stage ...'
+                //Find the active service
+                sh "oc get route sample-spring-crud -n ${STAGE_PROJECT} -o jsonpath='{ .spec.to.name }' > activeservice"
+                activeService = readFile('activeservice').trim()
+                echo "Active Service : ${activeService}"
+                if (activeService == "sample-spring-crud-blue") {
+                    tag = "green"
+                    altTag = "blue"
+                }else{
+                    tag = "blue"
+                    altTag = "green"
+                }
+                echo "Deploying  sample-spring-crud-${tag}"
+                sh "oc tag sample-spring-crud:latest sample-spring-crud:stage-${tag} -n ${DEV_PROJECT} "
+                sh "oc rollout latest sample-spring-crud-${tag} -n ${STAGE_PROJECT}"
+                sh "oc rollout status dc/sample-spring-crud-${tag} -w -n ${STAGE_PROJECT}"
+              }
+
+              stage ('Smoke Tests in test Stage (Not Live)! This is your part to play!!'){
+
+              }
+
+              stage ('Approve to go Live (You have 30 minutes to complete this step) ??') {
+
+                timeout(time:30, unit:'MINUTES') {
+                   input message:'Go Live in test (switch to new version)?' , ok: "Promote ${tag}"
+                }
+                sh "oc set route-backends sample-spring-crud sample-spring-crud-${tag}=100 sample-spring-crud-${altTag}=0 -n ${STAGE_PROJECT}"
+                echo "Now the test deployment switched to the ${tag} version"
+              }
+
+
+           }
+
+      type: JenkinsPipeline
+    successfulBuildsHistoryLimit: 5
+    triggers: []
